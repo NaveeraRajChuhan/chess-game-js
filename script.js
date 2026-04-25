@@ -3,6 +3,7 @@ class ChessGame {
     constructor() {
         this.board = this.initBoard();
         this.currentPlayer = 'white';
+        this.playerColor = 'white'; // New: Player's chosen color
         this.moveCount = 0;
         this.captureCount = 0;
         this.moveHistory = [];
@@ -12,6 +13,7 @@ class ChessGame {
         this.winner = null;
         this.checkStatus = false;
         this.difficulty = 'medium';
+        this.waitingForAI = false;
         
         this.init();
     }
@@ -35,17 +37,17 @@ class ChessGame {
         return board;
     }
 
-    getPieceSymbol(piece) {
+    getPieceIcon(piece) {
         if (!piece) return '';
-        const symbols = {
-            king: { white: '♔', black: '♚' },
-            queen: { white: '♕', black: '♛' },
-            rook: { white: '♖', black: '♜' },
-            bishop: { white: '♗', black: '♝' },
-            knight: { white: '♘', black: '♞' },
-            pawn: { white: '♙', black: '♟' }
+        const icons = {
+            king: { white: '<i class="fas fa-chess-king" style="color: #fff; text-shadow: 2px 2px 4px rgba(0,0,0,0.5);"></i>', black: '<i class="fas fa-chess-king" style="color: #333; text-shadow: 2px 2px 4px rgba(255,255,255,0.3);"></i>' },
+            queen: { white: '<i class="fas fa-chess-queen" style="color: #fff;"></i>', black: '<i class="fas fa-chess-queen" style="color: #333;"></i>' },
+            rook: { white: '<i class="fas fa-chess-rook" style="color: #fff;"></i>', black: '<i class="fas fa-chess-rook" style="color: #333;"></i>' },
+            bishop: { white: '<i class="fas fa-chess-bishop" style="color: #fff;"></i>', black: '<i class="fas fa-chess-bishop" style="color: #333;"></i>' },
+            knight: { white: '<i class="fas fa-chess-knight" style="color: #fff;"></i>', black: '<i class="fas fa-chess-knight" style="color: #333;"></i>' },
+            pawn: { white: '<i class="fas fa-chess-pawn" style="color: #fff;"></i>', black: '<i class="fas fa-chess-pawn" style="color: #333;"></i>' }
         };
-        return symbols[piece.type][piece.color];
+        return icons[piece.type][piece.color];
     }
 
     isValidMove(piece, fromRow, fromCol, toRow, toCol, board = this.board) {
@@ -101,6 +103,11 @@ class ChessGame {
                         const step = deltaCol === 2 ? 1 : -1;
                         for (let col = fromCol + step; col !== rookCol; col += step) {
                             if (board[fromRow][col]) return false;
+                        }
+                        // Check if squares between are not under attack
+                        const kingPos = { row: fromRow, col: fromCol };
+                        for (let col = fromCol; col !== toCol + step; col += step) {
+                            if (this.isSquareAttacked(fromRow, col, piece.color, board)) return false;
                         }
                         return true;
                     }
@@ -202,6 +209,17 @@ class ChessGame {
         newBoard[toRow][toCol] = { ...piece, hasMoved: true };
         newBoard[fromRow][fromCol] = null;
         
+        // Handle castling rook move in simulation
+        if (piece.type === 'king' && Math.abs(toCol - fromCol) === 2) {
+            const rookFromCol = toCol === 6 ? 7 : 0;
+            const rookToCol = toCol === 6 ? 5 : 3;
+            const rook = newBoard[fromRow][rookFromCol];
+            if (rook && rook.type === 'rook') {
+                newBoard[fromRow][rookToCol] = { ...rook, hasMoved: true };
+                newBoard[fromRow][rookFromCol] = null;
+            }
+        }
+        
         // Check if move leaves/puts king in check
         const kingPos = this.findKing(piece.color, newBoard);
         if (this.isSquareAttacked(kingPos.row, kingPos.col, piece.color, newBoard)) {
@@ -265,13 +283,6 @@ class ChessGame {
         return files[col] + ranks[row];
     }
 
-    algebraicToSquare(algebraic) {
-        const files = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
-        const col = files.indexOf(algebraic[0]);
-        const row = 8 - parseInt(algebraic[1]);
-        return { row, col };
-    }
-
     addCaptureAnimation(row, col) {
         const square = document.querySelector(`[data-row='${row}'][data-col='${col}']`);
         if (square) {
@@ -299,10 +310,17 @@ class ChessGame {
 
     makeMove(fromRow, fromCol, toRow, toCol) {
         if (this.gameOver) return false;
+        if (this.waitingForAI) return false;
         
         const piece = this.board[fromRow][fromCol];
         if (!piece || piece.color !== this.currentPlayer) {
             this.showWrongMove(fromRow, fromCol);
+            return false;
+        }
+        
+        // If it's AI's turn, don't allow player move
+        if (this.currentPlayer !== this.playerColor && this.currentPlayer !== 'white') {
+            this.showWrongMove(toRow, toCol);
             return false;
         }
         
@@ -325,17 +343,24 @@ class ChessGame {
     updateUI() {
         this.renderBoard();
         document.getElementById('turnDisplay').textContent = this.currentPlayer === 'white' ? 'White' : 'Black';
-        document.getElementById('turnPieceIcon').innerHTML = this.currentPlayer === 'white' ? '♔' : '♚';
+        
+        const turnIcon = document.getElementById('turnPieceIcon');
+        if (this.currentPlayer === 'white') {
+            turnIcon.innerHTML = '<i class="fas fa-chess-king" style="color: #fff;"></i>';
+        } else {
+            turnIcon.innerHTML = '<i class="fas fa-chess-king" style="color: #333;"></i>';
+        }
+        
         document.getElementById('turnText').textContent = `${this.currentPlayer === 'white' ? 'White' : 'Black'}'s Turn`;
         document.getElementById('moveCount').textContent = this.moveCount;
         document.getElementById('captureCount').textContent = this.captureCount;
         
         const checkStatusSpan = document.getElementById('checkStatus');
         if (this.checkStatus) {
-            checkStatusSpan.innerHTML = '<span style="color: #ff6b6b;">⚠CHECK⚠</span>';
+            checkStatusSpan.innerHTML = '<span style="color: #ff6b6b;"><i class="fas fa-exclamation-triangle"></i> CHECK!</span>';
             checkStatusSpan.classList.add('check-glow');
         } else {
-            checkStatusSpan.textContent = 'Safe';
+            checkStatusSpan.innerHTML = '<i class="fas fa-shield-alt"></i> Safe';
             checkStatusSpan.classList.remove('check-glow');
         }
         
@@ -351,12 +376,20 @@ class ChessGame {
         
         historyDiv.innerHTML = this.moveHistory.slice().reverse().map((move, index) => {
             const moveNumber = this.moveHistory.length - index;
-            const captureIcon = move.capture ? '⚔️' : '→';
+            const captureIcon = move.capture ? '<i class="fas fa-skull"></i>' : '<i class="fas fa-arrow-right"></i>';
+            const pieceIcons = {
+                king: '<i class="fas fa-chess-king"></i>',
+                queen: '<i class="fas fa-chess-queen"></i>',
+                rook: '<i class="fas fa-chess-rook"></i>',
+                bishop: '<i class="fas fa-chess-bishop"></i>',
+                knight: '<i class="fas fa-chess-knight"></i>',
+                pawn: '<i class="fas fa-chess-pawn"></i>'
+            };
             return `
                 <div class="history-item">
                     <strong>${moveNumber}.</strong>
                     <span style="color: ${move.color === 'white' ? '#ffd700' : '#ff6b6b'}">
-                        ${move.piece.toUpperCase()}
+                        ${pieceIcons[move.piece]} ${move.piece.toUpperCase()}
                     </span>
                     ${captureIcon}
                     ${move.from} → ${move.to}
@@ -370,14 +403,15 @@ class ChessGame {
         overlay.className = 'overlay';
         const modal = document.createElement('div');
         modal.className = 'victory-modal';
+        const winnerIcon = winner === 'white' ? '<i class="fas fa-chess-king" style="color: #ffd700;"></i>' : '<i class="fas fa-chess-king" style="color: #ff6b6b;"></i>';
         modal.innerHTML = `
-            <h2>🏆 GAME OVER 🏆</h2>
+            <h2><i class="fas fa-trophy"></i> GAME OVER <i class="fas fa-trophy"></i></h2>
             <h3 style="color: ${winner === 'white' ? '#ffd700' : '#ff6b6b'}">
-                ${winner === 'white' ? '♔ WHITE WINS! ♔' : '♚ BLACK WINS! ♚'}
+                ${winnerIcon} ${winner.toUpperCase()} WINS! ${winnerIcon}
             </h3>
-            <p>Total Moves: ${this.moveCount}</p>
-            <p>Captures: ${this.captureCount}</p>
-            <button onclick="location.reload()">Play Again</button>
+            <p><i class="fas fa-chart-line"></i> Total Moves: ${this.moveCount}</p>
+            <p><i class="fas fa-skull"></i> Captures: ${this.captureCount}</p>
+            <button onclick="location.reload()"><i class="fas fa-play"></i> Play Again</button>
         `;
         document.body.appendChild(overlay);
         document.body.appendChild(modal);
@@ -397,10 +431,10 @@ class ChessGame {
                 square.setAttribute('data-col', j);
                 
                 if (piece) {
-                    const pieceSymbol = this.getPieceSymbol(piece);
+                    const pieceIcon = this.getPieceIcon(piece);
                     const pieceElement = document.createElement('div');
                     pieceElement.className = 'piece';
-                    pieceElement.textContent = pieceSymbol;
+                    pieceElement.innerHTML = pieceIcon;
                     pieceElement.style.cursor = 'pointer';
                     square.appendChild(pieceElement);
                 }
@@ -430,6 +464,12 @@ class ChessGame {
 
     handleSquareClick(row, col) {
         if (this.gameOver) return;
+        if (this.waitingForAI) return;
+        
+        // If it's AI's turn, don't allow player to select
+        if (this.currentPlayer !== this.playerColor) {
+            return;
+        }
         
         if (this.selectedSquare === null) {
             const piece = this.board[row][col];
@@ -449,8 +489,9 @@ class ChessGame {
             this.selectedSquare = null;
             this.validMoves = [];
             
-            if (success) {
+            if (success && !this.gameOver) {
                 // AI Move after player move
+                this.waitingForAI = true;
                 setTimeout(() => this.makeAIMove(), 100);
             }
             this.renderBoard();
@@ -458,13 +499,25 @@ class ChessGame {
     }
 
     makeAIMove() {
-        if (this.gameOver || this.currentPlayer !== 'black') return;
+        if (this.gameOver) {
+            this.waitingForAI = false;
+            return;
+        }
+        if (this.currentPlayer !== 'black' && this.currentPlayer !== 'white') {
+            this.waitingForAI = false;
+            return;
+        }
+        // If it's not AI's turn (AI plays the opposite color of player)
+        if (this.currentPlayer === this.playerColor) {
+            this.waitingForAI = false;
+            return;
+        }
         
         const allPieces = [];
         for (let i = 0; i < 8; i++) {
             for (let j = 0; j < 8; j++) {
                 const piece = this.board[i][j];
-                if (piece && piece.color === 'black') {
+                if (piece && piece.color === this.currentPlayer) {
                     const moves = this.getValidMovesForPiece(i, j);
                     if (moves.length > 0) {
                         allPieces.push({ row: i, col: j, moves });
@@ -473,7 +526,10 @@ class ChessGame {
             }
         }
         
-        if (allPieces.length === 0) return;
+        if (allPieces.length === 0) {
+            this.waitingForAI = false;
+            return;
+        }
         
         let bestMove = null;
         
@@ -509,11 +565,15 @@ class ChessGame {
                         let score = 0;
                         // Capture bonus
                         if (this.board[move.row][move.col]) {
-                            score += 10;
+                            const targetPiece = this.board[move.row][move.col];
+                            const pieceValues = { queen: 9, rook: 5, bishop: 3, knight: 3, pawn: 1, king: 100 };
+                            score += pieceValues[targetPiece.type] || 0;
                         }
                         // Center control bonus
                         const centerDist = Math.abs(move.col - 3.5);
                         score += (4 - centerDist);
+                        // Random factor to make it less predictable
+                        score += Math.random() * 0.5;
                         if (score > bestScore) {
                             bestScore = score;
                             bestMove = { from: piece, to: move };
@@ -527,10 +587,26 @@ class ChessGame {
             this.makeMove(bestMove.from.row, bestMove.from.col, bestMove.to.row, bestMove.to.col);
             this.renderBoard();
         }
+        
+        this.waitingForAI = false;
     }
 
     setDifficulty(level) {
         this.difficulty = level;
+    }
+
+    setPlayerColor(color) {
+        if (color === 'random') {
+            this.playerColor = Math.random() < 0.5 ? 'white' : 'black';
+        } else {
+            this.playerColor = color;
+        }
+        this.resetGame();
+        
+        // If player chose black, AI starts as white
+        if (this.playerColor === 'black') {
+            setTimeout(() => this.makeAIMove(), 500);
+        }
     }
 
     resetGame() {
@@ -544,8 +620,22 @@ class ChessGame {
         this.gameOver = false;
         this.winner = null;
         this.checkStatus = false;
+        this.waitingForAI = false;
+        
+        // Remove any existing modals
+        const overlay = document.querySelector('.overlay');
+        const modal = document.querySelector('.victory-modal');
+        if (overlay) overlay.remove();
+        if (modal) modal.remove();
+        
         this.updateUI();
         this.renderBoard();
+        
+        // If player chose black, AI makes first move
+        if (this.playerColor === 'black' && !this.gameOver) {
+            this.waitingForAI = true;
+            setTimeout(() => this.makeAIMove(), 500);
+        }
     }
 
     init() {
@@ -561,6 +651,15 @@ class ChessGame {
             });
         });
         
+        // Setup color choice buttons
+        document.querySelectorAll('.color-choice-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.color-choice-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                this.setPlayerColor(btn.dataset.color);
+            });
+        });
+        
         // Setup restart buttons
         document.getElementById('restartBtn').addEventListener('click', () => {
             this.resetGame();
@@ -571,6 +670,9 @@ class ChessGame {
                 this.resetGame();
             }
         });
+        
+        // Set default player color (white)
+        this.playerColor = 'white';
     }
 }
 
