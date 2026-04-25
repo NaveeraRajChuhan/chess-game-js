@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>Chess Master | Play Chess Online</title>
+    
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            user-select: none;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            min-height: 100vh;
+            color: #fff;
+        }
+
+        /* Header Card */
+        .header-card {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 20px;
+            margin-bottom: 30px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .game-icon {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            animation: bounce 2s infinite;
+        }
+
+        @keyframes bounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-5px); }
+        }
+
+        .game-title {
+            font-size: 2rem;
+            font-weight: 800;
+            margin: 0;
+            background: linear-gradient(135deg, #ffd700, #ff6b6b);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+        }
+
+        /* Stats Cards */
+        .stat-card {
+            background: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 15px;
+            text-align: center;
+            transition: transform 0.3s;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-3px);
+        }
+
+        .stat-value {
+            font-size: 1.5rem;
+            font-weight: 800;
+            color: #ffd700;
+        }
+
+        /* Game Board */
+        .board-container {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 20px;
+            padding: 20px;
+            backdrop-filter: blur(10px);
+        }
+
+        .chess-board {
+            display: grid;
+            grid-template-columns: repeat(8, 1fr);
+            aspect-ratio: 1;
+            max-width: 600px;
+            margin: 0 auto;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        .square {
+            aspect-ratio: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-size: 2.2rem;
+            position: relative;
+        }
+
+        @media (max-width: 768px) {
+            .square {
+                font-size: 1.2rem;
+            }
+        }
+
+        @media (max-width: 576px) {
+            .square {
+                font-size: 1rem;
+            }
+        }
+
+        .square.light {
+            background-color: #f0d9b5;
+        }
+
+        .square.dark {
+            background-color: #b58863;
+        }
+
+        .square.selected {
+            background: linear-gradient(135deg, #4ecdc4, #44a08d);
+            box-shadow: inset 0 0 0 2px #ffd700;
+        }
+
+        .square.valid-move {
+            position: relative;
+        }
+
+        .square.valid-move::after {
+            content: '';
+            position: absolute;
+            width: 25%;
+            height: 25%;
+            background: rgba(78, 205, 196, 0.6);
+            border-radius: 50%;
+            pointer-events: none;
+        }
+
+        .square.capture-move::after {
+            background: rgba(255, 107, 107, 0.6);
+            border-radius: 0;
+            width: 80%;
+            height: 80%;
+            border-radius: 50%;
+        }
+
+        .square.wrong-move {
+            animation: shake 0.3s ease;
+            background-color: #ff6b6b !important;
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-5px); }
+            75% { transform: translateX(5px); }
+        }
+
+        .square.check {
+            background: linear-gradient(135deg, #ff6b6b, #c92a2a);
+            animation: pulse 1s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+
+        /* Piece Icons */
+        .piece {
+            cursor: pointer;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+            transition: transform 0.1s;
+        }
+
+        .piece:active {
+            transform: scale(0.9);
+        }
+
+        /* Controls */
+        .controls-card {
+            background: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 20px;
+        }
+
+        .difficulty-btn {
+            padding: 10px 20px;
+            margin: 5px;
+            border: none;
+            border-radius: 10px;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+
+        .difficulty-btn.easy {
+            background: #4ecdc4;
+            color: white;
+        }
+
+        .difficulty-btn.medium {
+            background: #ffe66d;
+            color: #333;
+        }
+
+        .difficulty-btn.hard {
+            background: #ff6b6b;
+            color: white;
+        }
+
+        .difficulty-btn.active {
+            transform: scale(1.05);
+            box-shadow: 0 0 15px currentColor;
+        }
+
+        .btn-restart {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            padding: 10px 25px;
+            border-radius: 10px;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+
+        .btn-restart:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        /* Move History */
+        .history-card {
+            background: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 20px;
+            height: 100%;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .history-list {
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .history-item {
+            padding: 8px;
+            margin: 5px 0;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            font-size: 0.85rem;
+        }
+
+        /* Turn Indicator */
+        .turn-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 20px;
+            background: rgba(0, 0, 0, 0.5);
+            border-radius: 30px;
+        }
+
+        .turn-piece {
+            font-size: 1.5rem;
+        }
+
+        /* Check Status */
+        .check-status {
+            padding: 8px 15px;
+            background: rgba(255, 107, 107, 0.3);
+            border-radius: 20px;
+            color: #ff6b6b;
+            font-weight: 600;
+        }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 10px;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #ffd700;
+            border-radius: 10px;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .game-title {
+                font-size: 1.5rem;
+            }
+            
+            .stat-value {
+                font-size: 1rem;
+            }
+            
+            .controls-card {
+                margin-top: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container py-3 py-md-4">
+        <!-- Header -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="header-card text-center">
+                    <div class="game-icon">
+                        <i class="fas fa-chess-queen"></i>
+                        <i class="fas fa-chess-knight"></i>
+                    </div>
+                    <h1 class="game-title">CHESS MASTER</h1>
+                    <p class="mt-2 text-white-50">Play Chess • Challenge Yourself • Master the Game</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Stats Row -->
+        <div class="row g-3 mb-4">
+            <div class="col-6 col-md-3">
+                <div class="stat-card">
+                    <i class="fas fa-hourglass-half text-warning mb-2"></i>
+                    <div class="stat-label text-white-50 small">TURN</div>
+                    <div class="stat-value" id="turnDisplay">White</div>
+                </div>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="stat-card">
+                    <i class="fas fa-chess-board text-warning mb-2"></i>
+                    <div class="stat-label text-white-50 small">MOVES</div>
+                    <div class="stat-value" id="moveCount">0</div>
+                </div>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="stat-card">
+                    <i class="fas fa-trophy text-warning mb-2"></i>
+                    <div class="stat-label text-white-50 small">CAPTURES</div>
+                    <div class="stat-value" id="captureCount">0</div>
+                </div>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="stat-card">
+                    <i class="fas fa-skull text-warning mb-2"></i>
+                    <div class="stat-label text-white-50 small">CHECK</div>
+                    <div class="stat-value" id="checkStatus">-</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Game Area -->
+        <div class="row">
+            <div class="col-lg-8 mb-4 mb-lg-0">
+                <div class="board-container">
+                    <div class="chess-board" id="chessBoard"></div>
+                    
+                    <div class="text-center mt-3">
+                        <div class="turn-indicator" id="turnIndicator">
+                            <span class="turn-piece" id="turnPieceIcon">♔</span>
+                            <span id="turnText">White's Turn</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-lg-4">
+                <!-- Controls Card -->
+                <div class="controls-card mb-4">
+                    <h5 class="text-center mb-3">
+                        <i class="fas fa-sliders-h"></i> GAME CONTROLS
+                    </h5>
+                    
+                    <div class="text-center mb-3">
+                        <label class="d-block mb-2">DIFFICULTY LEVEL</label>
+                        <div>
+                            <button class="difficulty-btn easy" data-difficulty="easy">
+                                <i class="fas fa-seedling"></i> Easy
+                            </button>
+                            <button class="difficulty-btn medium active" data-difficulty="medium">
+                                <i class="fas fa-chart-line"></i> Medium
+                            </button>
+                            <button class="difficulty-btn hard" data-difficulty="hard">
+                                <i class="fas fa-mountain"></i> Hard
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="d-grid gap-2">
+                        <button class="btn-restart" id="restartBtn">
+                            <i class="fas fa-redo-alt"></i> New Game
+                        </button>
+                        <button class="btn-restart" id="resetBoardBtn" style="background: linear-gradient(135deg, #ff6b6b, #c92a2a);">
+                            <i class="fas fa-trash-alt"></i> Reset Board
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Move History Card -->
+                <div class="history-card">
+                    <h5 class="text-center mb-3">
+                        <i class="fas fa-history"></i> MOVE HISTORY
+                    </h5>
+                    <div id="moveHistory" class="history-list">
+                        <div class="text-center text-white-50">No moves yet</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
